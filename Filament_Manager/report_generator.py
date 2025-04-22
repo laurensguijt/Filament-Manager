@@ -64,7 +64,7 @@ def draw_color_circle(canvas_obj, x, y, diameter, hex_color):
         canvas_obj.restoreState()
 
 
-def generate_filament_label(filament_data):
+def generate_filament_label(filament_data, include_qr=True, include_barcode=True):
     """Generate a PDF label for the filament"""
     try:
         # Create a temporary file
@@ -77,21 +77,31 @@ def generate_filament_label(filament_data):
         
         label_path = os.path.join(temp_dir, f"filament_label_{filament_code}.pdf")
         
-        # Generate QR code - smaller size for better positioning
-        qr = qrcode.QRCode(version=1, box_size=10, border=0)
-        qr.add_data(filament_code)
-        qr.make(fit=True)
-        qr_img = qr.make_image(fill_color="black", back_color="white")
-        qr_path = os.path.join(temp_dir, "temp_qr.png")
-        qr_img.save(qr_path)
+        # Generate QR code if requested
+        qr_path = None
+        if include_qr:
+            qr = qrcode.QRCode(version=1, box_size=10, border=0)
+            qr.add_data(filament_code)
+            qr.make(fit=True)
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            qr_path = os.path.join(temp_dir, "temp_qr.png")
+            qr_img.save(qr_path)
         
-        # Generate barcode
-        barcode_path = os.path.join(temp_dir, "temp_barcode")
-        code128 = Code128(filament_code, writer=ImageWriter())
-        code128.save(barcode_path)
+        # Generate barcode if requested
+        barcode_path = None
+        if include_barcode:
+            barcode_path = os.path.join(temp_dir, "temp_barcode")
+            code128 = Code128(filament_code, writer=ImageWriter())
+            code128.save(barcode_path)
         
         # Create the PDF with a larger size to match the image
         c = canvas.Canvas(label_path, pagesize=(100*mm, 60*mm))
+        
+        # Define margins
+        left_margin = 6*mm
+        right_margin = 94*mm
+        top_margin = 54*mm
+        bottom_margin = 6*mm
         
         # Draw background with rounded corners
         c.setFillColor(colors.white)
@@ -102,58 +112,133 @@ def generate_filament_label(filament_data):
         c.setStrokeColor(colors.black)
         c.setLineWidth(0.5)
         c.roundRect(75*mm, 40*mm, 15*mm, 15*mm, 2*mm, fill=1, stroke=1)
-        
-        # Add QR code in top left
+
+        # Define standard element sizes
         qr_size = 20*mm
-        qr_x = 8*mm
-        qr_y = 35*mm
-        c.drawImage(qr_path, qr_x, qr_y, qr_size, qr_size)
+        barcode_width = 25*mm  # Reduced to 25mm width
+        barcode_height = qr_size  # Same height as QR code
         
-        # Add barcode under QR code with increased size
-        barcode_width = 35*mm  # Increased width from 30mm to 35mm
-        barcode_height = 30*mm  # Increased height from 25mm to 30mm
-        barcode_x = qr_x - 7.5*mm  # Adjusted x position to center the wider barcode
-        barcode_y = 5*mm  # Lowered position to prevent overlap with QR code
-        c.drawImage(barcode_path + ".png", barcode_x, barcode_y, barcode_width, barcode_height, preserveAspectRatio=True)
+        # Calculate text positions and widths based on which codes are included
+        if include_qr and include_barcode:
+            # Both codes included
+            text_x = 35*mm
+            max_text_width = right_margin - text_x - 5*mm
+            code_y = 47*mm
+            material_y = 40*mm
+            supplier_y = 33*mm
+            date_y = 26*mm
+            weight_y = 19*mm
+            desc_y = 12*mm
+        elif include_qr:
+            # Only QR code
+            text_x = 35*mm
+            max_text_width = right_margin - text_x - 5*mm
+            code_y = 47*mm
+            material_y = 40*mm
+            supplier_y = 33*mm
+            date_y = 26*mm
+            weight_y = 19*mm
+            desc_y = 12*mm
+        elif include_barcode:
+            # Only barcode
+            text_x = 35*mm  # Keep text position same as with QR code
+            max_text_width = right_margin - text_x - 5*mm
+            code_y = 47*mm
+            material_y = 40*mm
+            supplier_y = 33*mm
+            date_y = 26*mm
+            weight_y = 19*mm
+            desc_y = 12*mm
+        else:
+            # No codes included
+            text_x = left_margin
+            max_text_width = right_margin - text_x - 5*mm
+            code_y = 50*mm
+            material_y = 43*mm
+            supplier_y = 36*mm
+            date_y = 29*mm
+            weight_y = 22*mm
+            desc_y = 15*mm
+        
+        # Add QR code in top left if requested
+        if include_qr and qr_path:
+            qr_x = left_margin + 2*mm
+            qr_y = 35*mm
+            c.drawImage(qr_path, qr_x, qr_y, qr_size, qr_size)
+        
+        # Add barcode with consistent positioning
+        if include_barcode and barcode_path:
+            barcode_x = left_margin + 2*mm
+            if include_qr:
+                barcode_y = 8*mm  # Position below QR code
+            else:
+                barcode_y = 35*mm  # Same vertical position as where QR would be
+            c.drawImage(barcode_path + ".png", barcode_x, barcode_y, barcode_width, barcode_height)
         
         # Add text with better formatting and larger font
         c.setFillColor(colors.black)
         
         # Filament code - now just the code without any black square
         c.setFont("Helvetica-Bold", 14)
-        c.drawString(35*mm, 47*mm, f"Code: {filament_code}")
+        c.drawString(text_x, code_y, f"Code: {filament_code}")
         
         # Material and variant - using actual font size from image
         material_variant = f"{filament_data.material} {filament_data.variant}"
         c.setFont("Helvetica", 14)
-        c.drawString(35*mm, 40*mm, material_variant)
+        c.drawString(text_x, material_y, material_variant)
         
         # Supplier
-        c.drawString(35*mm, 33*mm, f"Supplier: {filament_data.supplier}")
+        c.drawString(text_x, supplier_y, f"Supplier: {filament_data.supplier}")
         
         # Date opened
         date_str = filament_data.date_opened.strftime("%Y-%m-%d") if isinstance(filament_data.date_opened, datetime) else str(filament_data.date_opened).split(' ')[0]
-        c.drawString(35*mm, 26*mm, f"Opened: {date_str}")
+        c.drawString(text_x, date_y, f"Opened: {date_str}")
         
         # Empty spool weight
         empty_spool_weight_formatted = "{:,.0f}".format(filament_data.empty_spool_weight)
-        c.drawString(35*mm, 19*mm, f"Empty Spool: {empty_spool_weight_formatted}g")
+        c.drawString(text_x, weight_y, f"Empty Spool: {empty_spool_weight_formatted}g")
         
-        # Add description if present
+        # Add description if present with text wrapping
         if filament_data.description:
-            c.drawString(35*mm, 12*mm, f"Note: {filament_data.description}")
+            c.setFont("Helvetica", 12)  # Slightly smaller font for description
+            # Split description into words
+            words = filament_data.description.split()
+            lines = []
+            current_line = []
+            
+            for word in words:
+                # Test if adding the word would exceed the width
+                test_line = ' '.join(current_line + [word])
+                if c.stringWidth(f"Note: {test_line}" if not lines else test_line, "Helvetica", 12) <= max_text_width:
+                    current_line.append(word)
+                else:
+                    if current_line:
+                        lines.append(' '.join(current_line))
+                    current_line = [word]
+            
+            if current_line:
+                lines.append(' '.join(current_line))
+            
+            # Draw each line of the description
+            for i, line in enumerate(lines):
+                # Check if there's enough vertical space
+                current_y = desc_y - (i * 4*mm)
+                if current_y > bottom_margin:  # Only draw if above bottom margin
+                    c.drawString(text_x, current_y, f"Note: {line}" if i == 0 else line)
         
         # Add decorative elements - thinner line, moved down
         c.setStrokeColor(colors.black)
         c.setLineWidth(0.25)
-        c.line(8*mm, 4*mm, 92*mm, 4*mm)  # Line moved down further
+        c.line(left_margin, bottom_margin - 2*mm, right_margin, bottom_margin - 2*mm)
         
         # Save the PDF
         c.save()
         
         # Clean up temporary files
-        os.remove(qr_path)
-        os.remove(barcode_path + ".png")
+        if qr_path and os.path.exists(qr_path):
+            os.remove(qr_path)
+        if barcode_path and os.path.exists(barcode_path + ".png"):
+            os.remove(barcode_path + ".png")
         
         # Open the PDF with the default viewer
         if os.name == 'nt':  # Windows

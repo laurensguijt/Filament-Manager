@@ -167,20 +167,42 @@ class AddFilamentDialog(ctk.CTkToplevel):
         )
         save_button.pack(pady=(20, 10))
 
-        # Button frame at the bottom (without save button)
+        # Button frame at the bottom
         button_frame = ctk.CTkFrame(self)
-        button_frame.pack(fill="x", padx=20, pady=20, side="bottom")
+        button_frame.pack(fill="x", padx=20, pady=(0, 20), side="bottom")
         
-        # Cancel button
-        cancel_button = ctk.CTkButton(
+        # Label options frame
+        label_options_frame = ctk.CTkFrame(button_frame)
+        label_options_frame.pack(side="left", padx=5, pady=5)
+        
+        # QR code checkbox
+        self.include_qr_var = ctk.BooleanVar(value=True)
+        qr_checkbox = ctk.CTkCheckBox(
+            label_options_frame,
+            text="Include QR Code",
+            variable=self.include_qr_var
+        )
+        qr_checkbox.pack(side="left", padx=5)
+        
+        # Barcode checkbox
+        self.include_barcode_var = ctk.BooleanVar(value=True)
+        barcode_checkbox = ctk.CTkCheckBox(
+            label_options_frame,
+            text="Include Barcode",
+            variable=self.include_barcode_var
+        )
+        barcode_checkbox.pack(side="left", padx=5)
+        
+        # Label button
+        label_button = ctk.CTkButton(
             button_frame,
-            text="Cancel",
-            command=self.cancel,
-            fg_color="gray",
-            hover_color="darkgray",
+            text="Generate Label",
+            command=lambda: self.generate_label(new_filament),
+            fg_color="#2196F3",  # Blue color
+            hover_color="#1976D2",  # Darker blue
             width=120
         )
-        cancel_button.pack(side="right", padx=5)
+        label_button.pack(side="left", padx=5)
 
     def pick_color(self):
         color = colorchooser.askcolor(title="Choose Filament Color")
@@ -252,6 +274,10 @@ class AddFilamentDialog(ctk.CTkToplevel):
     def generate_label(self, filament_data):
         """Generate a label for a newly created filament"""
         try:
-            generate_filament_label(filament_data)
+            generate_filament_label(
+                filament_data,
+                include_qr=self.include_qr_var.get(),
+                include_barcode=self.include_barcode_var.get()
+            )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to generate label:\n{str(e)}") 
