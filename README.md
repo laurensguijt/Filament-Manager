@@ -58,16 +58,6 @@ python main.py
 
 To create a standalone Windows executable (.exe) file that you can share with others:
 
-### Using the Build Script (Recommended)
-
-1. Run the included build script:
-   ```
-   build_exe.bat
-   ```
-   This will automatically install PyInstaller if needed, along with all required dependencies, and build the executable.
-
-2. The executable will be created in the `dist\Filament Manager` folder.
-
 ### Manual Building
 
 1. Install PyInstaller:
