@@ -1,6 +1,7 @@
 # Filament Manager
 
 A comprehensive application for managing 3D printing filament inventory, designed for hobbyists and small businesses.
+This tool is open-source, and will always be free for use. Contributions are very welcome!
 
 ![Filament Manager Main Screen](screenshots/main.png)
 
